@@ -1,0 +1,176 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── Colors ─────────────────────────────────────────────────────────── */
+  --color-bg-base:           #0a0a0a;
+  --color-surface:           #111111;
+  --color-card:              #161616;
+  --color-card-hover:        #1c1c1c;
+  --color-divider:           #262626;
+  --color-divider-light:     #333333;
+
+  --color-text-primary:      #f5f5f5;
+  --color-text-muted:        #a3a3a3;
+  --color-text-subtle:       #6b7280;
+
+  --color-accent:            #4f46e5;
+  --color-accent-hover:      #4338ca;
+  --color-accent-light:      #818cf8;
+  --color-accent-muted:      #1e1b4b;
+
+  --color-success:           #10b981;
+  --color-warning:           #f59e0b;
+  --color-danger:            #ef4444;
+  --color-danger-hover:      #dc2626;
+  --color-cyan:              #06b6d4;
+
+  /* ── Radius ─────────────────────────────────────────────────────────── */
+  --radius-sm:               4px;
+  --radius-md:               8px;
+  --radius-lg:               12px;
+  --radius-xl:               16px;
+  --radius-2xl:              24px;
+}
+
+/* ── Runtime theme CSS vars (overridden by ThemeContext at runtime) ──── */
+:root {
+  --si-font-scale:    1;
+  --font-sans:        -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+
+  /* Dynamic accent — overridden at runtime by ThemeContext */
+  --lt-accent:        #4f46e5;
+  --lt-accent-light:  #818cf8;
+  --lt-accent-hover:  #4338ca;
+  --lt-accent-muted:  #1e1b4b;
+
+  /* Dark-mode surface palette (default) */
+  --lt-bg-base:       #0a0a0a;
+  --lt-surface:       #111111;
+  --lt-card:          #161616;
+  --lt-card-hover:    #1c1c1c;
+  --lt-divider:       #262626;
+  --lt-divider-light: #333333;
+  --lt-text-primary:  #f5f5f5;
+  --lt-text-muted:    #a3a3a3;
+  --lt-text-subtle:   #6b7280;
+
+  /* Danger semantic — adapts per theme */
+  --lt-danger-bg:     #450a0a;
+  --lt-danger-text:   #ef4444;
+  --lt-danger-hover:  #6b1212;
+}
+
+/* Light-mode overrides — applied when ThemeContext sets data-theme="light" */
+:root[data-theme="light"] {
+  --lt-bg-base:       #f8fafc;
+  --lt-surface:       #ffffff;
+  --lt-card:          #f1f5f9;
+  --lt-card-hover:    #e2e8f0;
+  --lt-divider:       #e2e8f0;
+  --lt-divider-light: #cbd5e1;
+  --lt-text-primary:  #0f172a;
+  --lt-text-muted:    #475569;
+  --lt-text-subtle:   #94a3b8;
+  --lt-accent-muted:  #e0e7ff;
+
+  /* Danger semantic — light mode: soft red tint */
+  --lt-danger-bg:     #fef2f2;
+  --lt-danger-text:   #dc2626;
+  --lt-danger-hover:  #fee2e2;
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Font-scale: all rem-based Tailwind sizes scale with this */
+html {
+  scroll-behavior: smooth;
+  font-size: calc(16px * var(--si-font-scale, 1));
+}
+
+body {
+  background-color: var(--lt-bg-base);
+  color: var(--lt-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ── Icon scale — Lucide icons scale proportionally with font-scale ─────── */
+svg.lucide {
+  zoom: var(--si-font-scale, 1);
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track { background: var(--lt-surface); }
+::-webkit-scrollbar-thumb { background: var(--lt-divider-light); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--lt-accent); }
+
+/* ── Utility classes ──────────────────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.card-glow {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.card-glow:hover {
+  border-color: #4f46e5 !important;
+  box-shadow: 0 0 20px rgba(79, 70, 229, 0.15);
+}
+
+.section-pad {
+  padding-top: 5rem;
+  padding-bottom: 5rem;
+}
+@media (min-width: 768px) {
+  .section-pad { padding-top: 6rem; padding-bottom: 6rem; }
+}
+@media (min-width: 1024px) {
+  .section-pad { padding-top: 8rem; padding-bottom: 8rem; }
+}
+
+/* ── Animations ──────────────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease forwards;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-slideUp {
+  animation: slideUp 0.3s ease forwards;
+}
+
+/* Progress bar animation */
+@keyframes progress-pulse {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+.progress-pulse {
+  animation: progress-pulse 1.5s ease-in-out infinite;
+}
+
+/* Drag-over overlay */
+.dropzone-active {
+  border: 2px dashed #4f46e5;
+  background: rgba(79, 70, 229, 0.05);
+}
