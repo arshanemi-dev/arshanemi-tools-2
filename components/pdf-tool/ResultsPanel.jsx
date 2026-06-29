@@ -1,13 +1,13 @@
 'use client'
 
-import { Download, Tag, Truck, CalendarDays } from 'lucide-react'
+import { Eye, Tag, Truck, CalendarDays } from 'lucide-react'
 
 const PLATFORM_LABELS = {
   myntra: 'Myntra', flipkart: 'Flipkart', meesho: 'Meesho',
   amazon: 'Amazon', snapdeal: 'Snapdeal', manual: 'Manual',
 }
 
-export default function ResultsPanel({ result, onDownload, downloading }) {
+export default function ResultsPanel({ result, onPreview }) {
   if (!result) return null
   const { platform, pageCount, sortMode, labelsSummary } = result
 
@@ -60,16 +60,15 @@ export default function ResultsPanel({ result, onDownload, downloading }) {
         </div>
       )}
 
-      {/* Download */}
+      {/* Preview & Download */}
       <div className="px-4 py-3 border-t" style={{ borderColor: '#e5e7eb' }}>
         <button
-          onClick={onDownload}
-          disabled={downloading}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold text-white transition-opacity disabled:opacity-60"
+          onClick={onPreview}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold text-white transition-opacity"
           style={{ backgroundColor: '#7c3aed' }}
         >
-          <Download size={15} />
-          {downloading ? 'Preparing…' : 'Download Sorted PDF'}
+          <Eye size={15} />
+          Preview &amp; Download
         </button>
       </div>
     </div>

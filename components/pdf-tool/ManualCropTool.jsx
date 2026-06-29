@@ -6,7 +6,7 @@ import { RotateCcw, Scissors } from 'lucide-react'
 
 const MIN_SIZE = 20
 
-export default function ManualCropTool({ pdfBytes, filename, onDownload }) {
+export default function ManualCropTool({ pdfBytes, filename, onCropComplete }) {
   const canvasRef     = useRef(null)
   const containerRef  = useRef(null)
   const [dims, setDims]               = useState(null)
@@ -149,7 +149,7 @@ export default function ManualCropTool({ pdfBytes, filename, onDownload }) {
         canvasWidth:  canvasRef.current.width,
         canvasHeight: canvasRef.current.height,
       })
-      onDownload(result, (filename || 'cropped') + '_cropped.pdf')
+      onCropComplete(result, (filename || 'cropped') + '_cropped.pdf')
     } catch (err) {
       console.error('Crop error:', err)
     } finally {

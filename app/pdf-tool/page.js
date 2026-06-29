@@ -2,13 +2,23 @@
 
 import { useState, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
-import PlatformTabs   from '@/components/pdf-tool/PlatformTabs'
-import PDFUploadZone  from '@/components/pdf-tool/PDFUploadZone'
-import SortOptions    from '@/components/pdf-tool/SortOptions'
-import ResultsPanel   from '@/components/pdf-tool/ResultsPanel'
+import PlatformTabs    from '@/components/pdf-tool/PlatformTabs'
+import PDFUploadZone   from '@/components/pdf-tool/PDFUploadZone'
+import SortOptions     from '@/components/pdf-tool/SortOptions'
+import ResultsPanel    from '@/components/pdf-tool/ResultsPanel'
 import SKUManagerPanel from '@/components/sku/SKUManagerPanel'
-import ManualCropTool from '@/components/pdf-tool/ManualCropTool'
+import ManualCropTool  from '@/components/pdf-tool/ManualCropTool'
+import PDFPreviewModal from '@/components/pdf-tool/PDFPreviewModal'
 import { getSkuMappings } from '@/lib/skuStore'
+
+function bytesToBase64(bytes) {
+  let binary = ''
+  const chunk = 8192
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.slice(i, i + chunk))
+  }
+  return btoa(binary)
+}
 
 export default function PDFToolPage() {
   const [platform,    setPlatform]    = useState('meesho')
@@ -21,12 +31,20 @@ export default function PDFToolPage() {
   const [premium,     setPremium]     = useState(false)
   const [error,       setError]       = useState('')
 
+  // Preview modal
+  const [previewOpen,     setPreviewOpen]     = useState(false)
+  const [previewBase64,   setPreviewBase64]   = useState(null)
+  const [previewFilename, setPreviewFilename] = useState('')
+
+  // Unique SKUs extracted from the processed PDF → feeds Unmap tab
+  const [pdfSkus, setPdfSkus] = useState([])
+
   useEffect(() => {
     setPremium(localStorage.getItem('pdf-tool-premium') === 'true')
   }, [])
 
   async function handleFile(f) {
-    setFile(f); setResult(null); setError('')
+    setFile(f); setResult(null); setError(''); setPdfSkus([]); setPreviewBase64(null)
     const buf = await f.arrayBuffer()
     setPdfBytes(new Uint8Array(buf))
 
@@ -41,7 +59,8 @@ export default function PDFToolPage() {
   }
 
   function handleRemove() {
-    setFile(null); setPdfBytes(null); setResult(null); setError('')
+    setFile(null); setPdfBytes(null); setResult(null)
+    setError(''); setPdfSkus([]); setPreviewBase64(null)
   }
 
   async function handleProcess() {
@@ -61,6 +80,16 @@ export default function PDFToolPage() {
       const prev = parseInt(localStorage.getItem('pdf-tool-processed-count') || '0', 10)
       localStorage.setItem('pdf-tool-processed-count', String(prev + 1))
       setResult(data)
+
+      // Unique SKUs for Unmap tab
+      const skus = [...new Set((data.labelsSummary || []).map(l => l.sku).filter(Boolean))]
+      setPdfSkus(skus)
+
+      // Base64 for preview modal
+      setPreviewBase64(data.sortedPdfBase64)
+      setPreviewFilename(
+        (file?.name?.replace(/\.pdf$/i, '') || 'sorted') + `_${sortMode || 'sku-group'}.pdf`
+      )
     } catch (err) {
       setError('Error: ' + err.message)
     } finally {
@@ -68,26 +97,23 @@ export default function PDFToolPage() {
     }
   }
 
-  async function handleDownload() {
-    if (!result?.sortedPdfBase64) return
+  function handleDownload() {
+    if (!previewBase64) return
     setDownloading(true)
     try {
-      const bytes = Uint8Array.from(atob(result.sortedPdfBase64), c => c.charCodeAt(0))
+      const bytes = Uint8Array.from(atob(previewBase64), c => c.charCodeAt(0))
       const blob  = new Blob([bytes], { type: 'application/pdf' })
       const url   = URL.createObjectURL(blob)
-      const a     = Object.assign(document.createElement('a'), {
-        href: url,
-        download: (file?.name?.replace('.pdf', '') || 'sorted') + `_${sortMode || 'sku-group'}.pdf`
-      })
+      const a     = Object.assign(document.createElement('a'), { href: url, download: previewFilename })
       a.click(); URL.revokeObjectURL(url)
     } finally { setDownloading(false) }
   }
 
-  function handleCropDownload(bytes, filename) {
-    const blob = new Blob([bytes], { type: 'application/pdf' })
-    const url  = URL.createObjectURL(blob)
-    const a    = Object.assign(document.createElement('a'), { href: url, download: filename })
-    a.click(); URL.revokeObjectURL(url)
+  // Called by ManualCropTool after crop is applied → open preview modal
+  function handleCropComplete(bytes, filename) {
+    setPreviewBase64(bytesToBase64(bytes))
+    setPreviewFilename(filename)
+    setPreviewOpen(true)
   }
 
   const isManual = platform === 'manual'
@@ -99,30 +125,28 @@ export default function PDFToolPage() {
         {/* Platform tabs */}
         <PlatformTabs active={platform} onChange={p => { setPlatform(p); setResult(null) }} />
 
-        {/* ── Upload + Options two-column ── */}
+        {/* Upload + Options — two columns */}
         <div className="flex flex-col md:flex-row gap-4 items-start">
 
-          {/* LEFT: upload zone + process button */}
+          {/* LEFT: upload + crop/process + results */}
           <div className="flex flex-col gap-3 w-full md:w-[55%]">
             <PDFUploadZone file={file} onFile={handleFile} onRemove={handleRemove} />
 
-            {/* Manual crop canvas */}
             {isManual && pdfBytes && (
               <ManualCropTool
                 pdfBytes={pdfBytes}
                 filename={file?.name}
-                onDownload={handleCropDownload}
+                onCropComplete={handleCropComplete}
               />
             )}
 
-            {/* Error */}
             {error && (
-              <p className="text-xs px-3 py-2 rounded-lg" style={{ color: '#dc2626', backgroundColor: '#fef2f2', border: '1px solid #fecaca' }}>
+              <p className="text-xs px-3 py-2 rounded-lg"
+                 style={{ color: '#dc2626', backgroundColor: '#fef2f2', border: '1px solid #fecaca' }}>
                 {error}
               </p>
             )}
 
-            {/* Process PDF button (only for platform tabs, not manual) */}
             {!isManual && (
               <button
                 onClick={handleProcess}
@@ -136,24 +160,31 @@ export default function PDFToolPage() {
               </button>
             )}
 
-            {/* Results */}
-            {result && (
-              <ResultsPanel result={result} onDownload={handleDownload} downloading={downloading} />
+            {result && !isManual && (
+              <ResultsPanel result={result} onPreview={() => setPreviewOpen(true)} />
             )}
           </div>
 
-          {/* RIGHT: sort options */}
-          {!isManual && (
-            <div className="w-full md:w-[45%]">
-              <SortOptions selected={sortMode} onChange={setSortMode} premium={premium} />
-            </div>
-          )}
+          {/* RIGHT: sort options — visible for ALL tabs including Manual */}
+          <div className="w-full md:w-[45%]">
+            <SortOptions selected={sortMode} onChange={setSortMode} premium={premium} />
+          </div>
         </div>
 
-        {/* SKU Manager */}
-        <SKUManagerPanel />
-
+        {/* SKU Manager with Unmap tab */}
+        <SKUManagerPanel pdfSkus={pdfSkus} />
       </div>
+
+      {/* PDF Preview Modal */}
+      {previewOpen && previewBase64 && (
+        <PDFPreviewModal
+          pdfBase64={previewBase64}
+          filename={previewFilename}
+          onClose={() => setPreviewOpen(false)}
+          onDownload={handleDownload}
+          downloading={downloading}
+        />
+      )}
     </div>
   )
 }

@@ -34,7 +34,7 @@ export default function SortOptions({ selected, onChange, premium }) {
                 type="checkbox"
                 checked={selected === opt.id}
                 onChange={() => onChange(selected === opt.id ? '' : opt.id)}
-                className="w-3.5 h-3.5 rounded"
+                className="w-3.5 h-3.5 rounded-full"
                 style={{ accentColor: '#7c3aed' }}
               />
               <span className="text-sm" style={{ color: '#374151' }}>{opt.label}</span>
@@ -65,7 +65,7 @@ export default function SortOptions({ selected, onChange, premium }) {
                 checked={selected === opt.id}
                 disabled={!premium}
                 onChange={() => premium && onChange(selected === opt.id ? '' : opt.id)}
-                className="w-3.5 h-3.5 rounded"
+                className="w-3.5 h-3.5 rounded-full"
                 style={{ accentColor: '#7c3aed' }}
               />
               <span className="text-sm" style={{ color: '#374151' }}>{opt.label}</span>
