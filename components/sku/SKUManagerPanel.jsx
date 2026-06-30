@@ -24,9 +24,11 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
   // Unmap tab
   const [selPdfSkus,  setSelPdfSkus]  = useState([])
   const [mapTarget,   setMapTarget]   = useState('')
-  const [unmapSearch, setUnmapSearch] = useState('')   // filter master SKU list
+  const [unmapSearch, setUnmapSearch] = useState('')   // search text inside dropdown
+  const [dropOpen,    setDropOpen]    = useState(false)
   const [skuSearch,   setSkuSearch]   = useState('')   // filter unmapped PDF SKU list
   const uploadRef   = useRef(null)
+  const dropdownRef = useRef(null)
 
   // Upload diff modal
   const [diffOpen,    setDiffOpen]    = useState(false)
@@ -34,6 +36,7 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
   const [diffKey,     setDiffKey]     = useState(0)   // force modal remount per upload
   const [parsing,     setParsing]     = useState(false)
   const [uploadMsg,   setUploadMsg]   = useState(null) // { text, ok }
+  const [addError,    setAddError]    = useState('')
 
   const reload = useCallback(async () => {
     setMasters(await getMasterSKUs())
@@ -42,6 +45,13 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
 
   useEffect(() => { reload() }, [reload])
 
+  useEffect(() => {
+    function onOutside(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setDropOpen(false)
+    }
+    document.addEventListener('mousedown', onOutside)
+    return () => document.removeEventListener('mousedown', onOutside)
+  }, [])
 
   // ── Derived ───────────────────────────────────────────────────────────────────
   const filteredMasters = masters.filter(m =>
@@ -102,6 +112,11 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
   async function handleAddSKU() {
     const val = addInput.trim().toUpperCase()
     if (!val) return
+    if (masters.includes(val)) {
+      setAddError(`"${val}" already exists as a Master SKU`)
+      return
+    }
+    setAddError('')
     await addMasterSKU(val); setAddInput(''); reload()
   }
 
@@ -109,6 +124,10 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
     if (!renaming) return
     const newVal = renaming.value.trim().toUpperCase()
     if (!newVal) return
+    if (newVal !== renaming.sku && masters.includes(newVal)) {
+      setRenaming(p => ({ ...p, error: `"${newVal}" already exists` }))
+      return
+    }
     if (newVal !== renaming.sku) {
       await updateMasterSKU(renaming.sku, newVal)
       for (const m of mappings.filter(m => m.masterSku === renaming.sku)) {
@@ -211,18 +230,43 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
           return !s || s === '-' || s === '0'
         }
 
-        const incoming = { mapped: [], unmapped: [] }
+        const rawMapped   = []
+        const rawUnmapped = []
         for (let i = 1; i < rows.length; i++) {
           const masterSku = String(rows[i][0] ?? '').trim()
           const sku       = String(rows[i][1] ?? '').trim()
           const unmapSku  = String(rows[i][2] ?? '').trim()
 
-          if (!isEmpty(masterSku) && !isEmpty(sku)) {
-            incoming.mapped.push({ masterSku, sku })
-          }
-          if (!isEmpty(unmapSku)) {
-            incoming.unmapped.push(unmapSku)
-          }
+          if (!isEmpty(masterSku) && !isEmpty(sku)) rawMapped.push({ masterSku, sku })
+          if (!isEmpty(unmapSku))                    rawUnmapped.push(unmapSku)
+        }
+
+        // ── Uniqueness checks ────────────────────────────────────────────────────
+        // 1. Duplicate SKUs in mapped section (same SKU → different masters)
+        const skuFirstSeen = new Map()
+        const dupSkus      = new Set()
+        for (const { sku, masterSku } of rawMapped) {
+          if (skuFirstSeen.has(sku)) { dupSkus.add(sku) }
+          else                       { skuFirstSeen.set(sku, masterSku) }
+        }
+
+        // 2. SKU appears in BOTH mapped and unmapped columns
+        const mappedSkuSet = new Set(rawMapped.filter(r => !dupSkus.has(r.sku)).map(r => r.sku))
+        const bothConflict = rawUnmapped.filter(sku => mappedSkuSet.has(sku))
+        const bothSet      = new Set(bothConflict)
+
+        // Build clean incoming sets
+        const incoming = {
+          mapped:   rawMapped.filter(r => !dupSkus.has(r.sku)),
+          unmapped: rawUnmapped.filter(sku => !bothSet.has(sku)),
+        }
+
+        // Collect conflict warnings
+        const conflictLines = []
+        if (dupSkus.size > 0)      conflictLines.push(`Duplicate SKUs (skipped): ${[...dupSkus].join(', ')}`)
+        if (bothConflict.length > 0) conflictLines.push(`SKU in both Mapped & UnMap (skipped): ${bothConflict.join(', ')}`)
+        if (conflictLines.length > 0) {
+          setUploadMsg({ text: conflictLines.join(' | '), ok: false })
         }
 
         const changes = []
@@ -281,7 +325,10 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
         setParsing(false)
 
         if (changes.length === 0) {
-          setUploadMsg({ text: 'No changes detected — data matches current state.', ok: true })
+          // Only set "no changes" if we haven't already set a conflict warning
+          if (conflictLines.length === 0) {
+            setUploadMsg({ text: 'No changes detected — data matches current state.', ok: true })
+          }
           return
         }
 
@@ -480,7 +527,7 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
             )}
 
             {/* Tree list */}
-            <div style={{ borderTop: '1px solid #e5e7eb' }}>
+            <div style={{ borderTop: '1px solid #e5e7eb', maxHeight: 340, overflowY: 'auto' }}>
               {filteredMasters.length === 0 ? (
                 <p className="text-sm text-center py-8" style={{ color: '#9ca3af' }}>
                   No master SKUs yet — add one below
@@ -525,25 +572,36 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
                       )}
 
                       {isRenaming ? (
-                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                          <input
-                            value={renaming.value}
-                            onChange={e => setRenaming(p => ({ ...p, value: e.target.value.toUpperCase() }))}
-                            onKeyDown={e => { if (e.key === 'Enter') handleRenameSave(); if (e.key === 'Escape') setRenaming(null) }}
-                            autoFocus
-                            className="flex-1 min-w-0 px-2 py-1 text-sm font-mono rounded-lg outline-none"
-                            style={{ border: '1px solid #7c3aed', color: '#111827', backgroundColor: '#fff' }}
-                          />
-                          <button onClick={e => { e.stopPropagation(); handleRenameSave() }}
-                                  className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-                                  style={{ backgroundColor: '#16a34a', color: '#fff' }}>
-                            <Check size={11} strokeWidth={2.5} />
-                          </button>
-                          <button onClick={e => { e.stopPropagation(); setRenaming(null) }}
-                                  className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-                                  style={{ backgroundColor: '#e5e7eb', color: '#6b7280' }}>
-                            <X size={11} strokeWidth={2.5} />
-                          </button>
+                        <div className="flex flex-col flex-1 min-w-0 gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              value={renaming.value}
+                              onChange={e => setRenaming(p => ({ ...p, value: e.target.value.toUpperCase(), error: '' }))}
+                              onKeyDown={e => { if (e.key === 'Enter') handleRenameSave(); if (e.key === 'Escape') setRenaming(null) }}
+                              autoFocus
+                              className="flex-1 min-w-0 px-2 py-1 text-sm font-mono rounded-lg outline-none"
+                              style={{
+                                border: `1px solid ${renaming.error ? '#fca5a5' : '#7c3aed'}`,
+                                color: '#111827',
+                                backgroundColor: renaming.error ? '#fef2f2' : '#fff',
+                              }}
+                            />
+                            <button onClick={e => { e.stopPropagation(); handleRenameSave() }}
+                                    className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                                    style={{ backgroundColor: '#16a34a', color: '#fff' }}>
+                              <Check size={11} strokeWidth={2.5} />
+                            </button>
+                            <button onClick={e => { e.stopPropagation(); setRenaming(null) }}
+                                    className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                                    style={{ backgroundColor: '#e5e7eb', color: '#6b7280' }}>
+                              <X size={11} strokeWidth={2.5} />
+                            </button>
+                          </div>
+                          {renaming.error && (
+                            <p className="text-xs font-medium pl-1" style={{ color: '#dc2626' }}>
+                              {renaming.error}
+                            </p>
+                          )}
                         </div>
                       ) : (
                         <span className="text-sm font-semibold flex-1 truncate uppercase" style={{ color: '#111827' }}>
@@ -601,11 +659,15 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
               <div className="flex gap-2">
                 <input
                   value={addInput}
-                  onChange={e => setAddInput(e.target.value.toUpperCase())}
+                  onChange={e => { setAddInput(e.target.value.toUpperCase()); setAddError('') }}
                   onKeyDown={e => e.key === 'Enter' && handleAddSKU()}
-                  placeholder="Add New SKU"
+                  placeholder="Add New Master SKU"
                   className="flex-1 px-4 py-2.5 text-sm rounded-lg outline-none font-mono"
-                  style={{ border: '1px solid #e5e7eb', color: '#374151', backgroundColor: '#fff' }}
+                  style={{
+                    border: `1px solid ${addError ? '#fca5a5' : '#e5e7eb'}`,
+                    color: '#374151',
+                    backgroundColor: addError ? '#fef2f2' : '#fff',
+                  }}
                 />
                 <button onClick={handleAddSKU}
                         className="px-4 py-2.5 text-sm font-semibold rounded-lg text-white"
@@ -613,6 +675,11 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
                   Add
                 </button>
               </div>
+              {addError && (
+                <p className="mt-1.5 text-xs font-medium" style={{ color: '#dc2626' }}>
+                  {addError}
+                </p>
+              )}
             </div>
           </>
         )}
@@ -620,84 +687,89 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
         {/* ── Tab 1: Unmap ── */}
         {activeTab === 1 && (
           <>
-            {/* Master SKU selector — always-visible scrollable list */}
-            <div className="px-4 pt-3 pb-2 border-b" style={{ borderColor: '#e5e7eb' }}>
-              <div className="flex items-center justify-between mb-1.5">
-                <p className="text-xs font-semibold" style={{ color: '#374151' }}>
-                  Select master SKU to map to:
-                </p>
-                {mapTarget && (
-                  <button
-                    onClick={() => { setMapTarget(''); setUnmapSearch('') }}
-                    className="text-xs flex items-center gap-1"
-                    style={{ color: '#9ca3af' }}
+            {/* Master SKU selector — searchable dropdown */}
+            <div className="px-4 pt-3 pb-3 border-b" style={{ borderColor: '#e5e7eb' }}>
+              <p className="text-xs font-semibold mb-1.5" style={{ color: '#374151' }}>
+                Select master SKU to map to:
+              </p>
+
+              <div className="relative" ref={dropdownRef}>
+                {/* Trigger / search input */}
+                <div
+                  className="flex items-center rounded-lg overflow-hidden"
+                  style={{
+                    border: `1px solid ${dropOpen ? '#7c3aed' : '#e5e7eb'}`,
+                    backgroundColor: '#f9fafb',
+                  }}
+                >
+                  <Search size={13} className="ml-3 shrink-0" style={{ color: '#9ca3af' }} />
+                  <input
+                    value={dropOpen ? unmapSearch : mapTarget}
+                    onChange={e => { setUnmapSearch(e.target.value); if (!dropOpen) setDropOpen(true) }}
+                    onFocus={() => { setUnmapSearch(''); setDropOpen(true) }}
+                    placeholder={mapTarget ? mapTarget : 'Search master SKU…'}
+                    className="flex-1 px-2 py-2.5 text-sm outline-none bg-transparent font-mono"
+                    style={{ color: dropOpen ? '#374151' : '#7c3aed', fontWeight: mapTarget && !dropOpen ? 600 : 400 }}
+                  />
+                  {mapTarget && !dropOpen && (
+                    <button
+                      onMouseDown={e => e.preventDefault()}
+                      onClick={() => { setMapTarget(''); setUnmapSearch(''); setSelPdfSkus([]) }}
+                      className="px-2 shrink-0"
+                      style={{ color: '#9ca3af' }}
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                  <ChevronDown
+                    size={14}
+                    className="mr-3 shrink-0 transition-transform"
+                    style={{ color: '#6b7280', transform: dropOpen ? 'rotate(180deg)' : 'none' }}
+                  />
+                </div>
+
+                {/* Dropdown list */}
+                {dropOpen && (
+                  <div
+                    className="absolute z-20 w-full mt-1 rounded-lg overflow-y-auto shadow-lg"
+                    style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', maxHeight: 200 }}
                   >
-                    <X size={11} /> Clear
-                  </button>
+                    {filteredDropdownMasters.length === 0 ? (
+                      <p className="text-xs text-center py-3" style={{ color: '#9ca3af' }}>
+                        {unmapSearch ? `No match for "${unmapSearch}"` : 'No master SKUs yet'}
+                      </p>
+                    ) : filteredDropdownMasters.map((m, idx) => (
+                      <button
+                        key={m}
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => { setMapTarget(m); setUnmapSearch(''); setDropOpen(false) }}
+                        className="w-full text-left px-3 py-2.5 text-sm font-mono flex items-center gap-2"
+                        style={{
+                          backgroundColor: mapTarget === m ? '#f3f0ff' : 'transparent',
+                          color:           mapTarget === m ? '#7c3aed' : '#374151',
+                          fontWeight:      mapTarget === m ? 700 : 400,
+                          borderBottom:    idx < filteredDropdownMasters.length - 1 ? '1px solid #f3f4f6' : 'none',
+                        }}
+                      >
+                        {mapTarget === m && <Check size={12} strokeWidth={2.5} style={{ color: '#7c3aed', flexShrink: 0 }} />}
+                        {mapTarget !== m && <span style={{ width: 12, flexShrink: 0 }} />}
+                        {m}
+                        <span className="ml-auto text-xs" style={{ color: '#9ca3af' }}>
+                          {mappings.filter(mp => mp.masterSku === m).length}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
 
-              {/* Filter input */}
-              <div className="relative mb-2">
-                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#9ca3af' }} />
-                <input
-                  value={unmapSearch}
-                  onChange={e => { setUnmapSearch(e.target.value); setMapTarget('') }}
-                  placeholder="Filter master SKUs…"
-                  className="w-full pl-8 pr-3 py-2 text-sm rounded-lg outline-none font-mono"
-                  style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', color: '#374151' }}
-                />
-              </div>
-
-              {/* Always-visible master list */}
-              {masters.length === 0 ? (
-                <p className="text-xs text-center py-3" style={{ color: '#9ca3af' }}>
-                  No master SKUs yet — add some in the first tab
-                </p>
-              ) : (
-                <div
-                  className="rounded-lg overflow-y-auto"
-                  style={{ border: '1px solid #e5e7eb', maxHeight: 160 }}
-                >
-                  {filteredDropdownMasters.length === 0 ? (
-                    <p className="text-xs text-center py-3" style={{ color: '#9ca3af' }}>
-                      No match for "{unmapSearch}"
-                    </p>
-                  ) : filteredDropdownMasters.map((m, idx) => (
-                    <button
-                      key={m}
-                      onClick={() => setMapTarget(prev => prev === m ? '' : m)}
-                      className="w-full text-left px-3 py-2 text-sm font-mono flex items-center gap-2 transition-colors"
-                      style={{
-                        backgroundColor: mapTarget === m ? '#f3f0ff' : idx % 2 === 0 ? '#fff' : '#fafafa',
-                        color:           mapTarget === m ? '#7c3aed' : '#374151',
-                        fontWeight:      mapTarget === m ? 700 : 400,
-                        borderBottom:    idx < filteredDropdownMasters.length - 1 ? '1px solid #f3f4f6' : 'none',
-                      }}
-                    >
-                      <span
-                        className="w-3.5 h-3.5 rounded-full border shrink-0 flex items-center justify-center"
-                        style={{
-                          borderColor:     mapTarget === m ? '#7c3aed' : '#d1d5db',
-                          backgroundColor: mapTarget === m ? '#7c3aed' : 'transparent',
-                        }}
-                      >
-                        {mapTarget === m && <Check size={8} strokeWidth={3} style={{ color: '#fff' }} />}
-                      </span>
-                      {m}
-                      <span className="ml-auto text-xs" style={{ color: '#9ca3af' }}>
-                        {mappings.filter(mp => mp.masterSku === m).length}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Map selected batch button */}
+              {/* Map batch button */}
               {selPdfSkus.length > 0 && mapTarget && (
-                <button onClick={handleMapSelected}
-                        className="mt-2 w-full py-2 text-sm font-semibold rounded-lg text-white"
-                        style={{ backgroundColor: '#7c3aed' }}>
+                <button
+                  onClick={handleMapSelected}
+                  className="mt-2 w-full py-2 text-sm font-semibold rounded-lg text-white"
+                  style={{ backgroundColor: '#7c3aed' }}
+                >
                   Map {selPdfSkus.length} SKU{selPdfSkus.length > 1 ? 's' : ''} → {mapTarget}
                 </button>
               )}
@@ -725,7 +797,7 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
               </div>
             )}
 
-            <div>
+            <div style={{ maxHeight: 300, overflowY: 'auto' }}>
               {pdfSkus.length === 0 ? (
                 <p className="text-sm text-center py-10" style={{ color: '#9ca3af' }}>
                   Process a PDF first to see extracted SKUs here

@@ -107,13 +107,13 @@ svg.lucide {
 }
 
 /* ── Scrollbar ─────────────────────────────────────────────────────────── */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track { background: var(--lt-surface); }
-::-webkit-scrollbar-thumb { background: var(--lt-divider-light); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--lt-accent); }
+::-webkit-scrollbar        { width: 4px; height: 4px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: #d1d5db; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+/* Firefox */
+* { scrollbar-width: thin; scrollbar-color: #d1d5db transparent; }
 
 /* ── Utility classes ──────────────────────────────────────────────────── */
 .gradient-text {
