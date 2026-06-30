@@ -18,7 +18,7 @@ export default function RootLayout({ children }) {
         <ThemeProvider>
           <ToastProvider>
             <Header />
-            <main className="flex-1 overflow-hidden" style={{ backgroundColor: 'var(--lt-bg-base)' }}>
+            <main className="flex-1 overflow-y-auto" style={{ backgroundColor: 'var(--lt-bg-base)' }}>
               {children}
             </main>
           </ToastProvider>

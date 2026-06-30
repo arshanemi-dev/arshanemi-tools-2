@@ -18,7 +18,7 @@ function PdfIcon({ size = 16 }) {
 }
 
 const BASE_NAV = [
-  { href: '/pdf-tool', label: 'PDF Tool', isPdf: true },
+  // { href: '/pdf-tool', label: 'PDF Tool', isPdf: true },
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
