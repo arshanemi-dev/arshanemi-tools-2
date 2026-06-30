@@ -386,7 +386,7 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
 
   return (
     <>
-      <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#e5e7eb', backgroundColor: '#fff' }}>
+      <div className="rounded-xl border overflow-hidden w-3/5" style={{ borderColor: '#e5e7eb', backgroundColor: '#fff' }}>
 
         {/* ── Header with tabs ── */}
         <div className="flex items-end justify-between px-4 pt-4 border-b" style={{ borderColor: '#e5e7eb' }}>

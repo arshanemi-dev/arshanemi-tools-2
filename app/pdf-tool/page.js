@@ -26,10 +26,12 @@ export default function PDFToolPage() {
   const [pdfBytes,        setPdfBytes]        = useState(null)
   const [sortMode,        setSortMode]        = useState('')   // top section selection
   const [masterSortMode,  setMasterSortMode]  = useState('')   // bottom (master) section selection
-  const [processing,      setProcessing]      = useState(false)
-  const [downloading,     setDownloading]     = useState(false)
-  const [premium,         setPremium]         = useState(false)
-  const [error,           setError]           = useState('')
+  const [processing,         setProcessing]         = useState(false)
+  const [downloading,        setDownloading]        = useState(false)
+  const [downloadingPicklist,setDownloadingPicklist] = useState(false)
+  const [premium,            setPremium]            = useState(false)
+  const [error,              setError]              = useState('')
+  const [labelsSummary,      setLabelsSummary]      = useState([])
 
   // Preview modal
   const [previewOpen,    setPreviewOpen]    = useState(false)
@@ -90,7 +92,9 @@ export default function PDFToolPage() {
       const prev = parseInt(localStorage.getItem('pdf-tool-processed-count') || '0', 10)
       localStorage.setItem('pdf-tool-processed-count', String(prev + 1))
 
-      const skus = [...new Set((data.labelsSummary || []).map(l => l.sku).filter(Boolean))]
+      const summary = data.labelsSummary || []
+      setLabelsSummary(summary)
+      const skus = [...new Set(summary.map(l => l.sku).filter(Boolean))]
       setPdfSkus(skus)
 
       let finalBytes = Uint8Array.from(atob(data.sortedPdfBase64), c => c.charCodeAt(0))
@@ -124,20 +128,39 @@ export default function PDFToolPage() {
     } finally { setDownloading(false) }
   }
 
+  async function handlePicklistDownload(mode) {
+    if (!labelsSummary.length) return
+    setDownloadingPicklist(true)
+    try {
+      const skuMappings = await getSkuMappings()
+      const res = await fetch('/api/pdf/picklist', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ labels: labelsSummary, mappings: skuMappings, mode }),
+      })
+      if (!res.ok) { console.error('Picklist error', await res.text()); return }
+      const blob     = await res.blob()
+      const url      = URL.createObjectURL(blob)
+      const filename = mode === 'master-pick-list' ? 'master-pick-list.pdf' : 'pick-list.pdf'
+      Object.assign(document.createElement('a'), { href: url, download: filename }).click()
+      URL.revokeObjectURL(url)
+    } finally { setDownloadingPicklist(false) }
+  }
+
   const isManual = platform === 'manual'
 
   return (
     <div className="min-h-full" style={{ backgroundColor: '#f9fafb' }}>
-      <div className="max-w-4xl mx-auto px-4 py-6 flex flex-col gap-5">
-
+      <div className="w-full mx-auto px-4 py-6 flex flex-row gap-5">
+<div className="flex flex-col gap-6 w-full mx-auto">
         {/* Platform tabs */}
         <PlatformTabs active={platform} onChange={p => { setPlatform(p); setPreviewBase64(null); setCropReady(false) }} />
 
         {/* Upload + Options */}
-        <div className="flex flex-col md:flex-row gap-4 items-start">
+        <div className="flex flex-col md:flex-row gap-4 items-start w-full">
 
           {/* LEFT: upload + crop + process + result buttons */}
-          <div className="flex flex-col gap-3 w-full md:w-[55%]">
+          <div className="flex flex-col gap-3 w-full">
             <PDFUploadZone file={file} onFile={handleFile} onRemove={handleRemove} />
 
             {isManual && pdfBytes && (
@@ -155,7 +178,19 @@ export default function PDFToolPage() {
               </p>
             )}
 
-            {/* Process button — requires a sort option + crop (manual only) */}
+           
+          </div>
+
+          {/* RIGHT: two-section sort options */}
+          <div className="w-1/3 flex flex-col gap-3">
+            <SortOptions
+              selectedTop={sortMode}
+              onChangeTop={setSortMode}
+              selectedBottom={masterSortMode}
+              onChangeBottom={setMasterSortMode}
+              premium={premium}
+            />
+             {/* Process button — requires a sort option + crop (manual only) */}
             {(() => {
               const sortSelected = !!(sortMode || masterSortMode)
               const canProcess   = !!file && sortSelected && (!isManual || cropReady) && !processing
@@ -191,20 +226,15 @@ export default function PDFToolPage() {
                 onPreview={() => setPreviewOpen(true)}
                 onDownload={handleDownload}
                 downloading={downloading}
+                onDownloadPicklist={handlePicklistDownload}
+                downloadingPicklist={downloadingPicklist}
+                showPicklist={masterSortMode === 'pick-list'}
+                showMasterPicklist={masterSortMode === 'master-pick-list'}
+                hasLabels={labelsSummary.length > 0}
               />
             )}
           </div>
-
-          {/* RIGHT: two-section sort options */}
-          <div className="w-full md:w-[45%]">
-            <SortOptions
-              selectedTop={sortMode}
-              onChangeTop={setSortMode}
-              selectedBottom={masterSortMode}
-              onChangeBottom={setMasterSortMode}
-              premium={premium}
-            />
-          </div>
+        </div>
         </div>
 
         {/* SKU Manager */}

@@ -14,7 +14,7 @@ const TOP_OPTIONS = [
 
 const BOTTOM_OPTIONS = [
   { id: 'pick-list',        label: 'Pick List',       premium: false },
-  { id: 'master-pick-list', label: 'Master Pick List', premium: true  },
+  { id: 'master-pick-list', label: 'Master Pick List', premium: false  },
 ]
 
 function OptionRow({ opt, checked, premium, onChange }) {
