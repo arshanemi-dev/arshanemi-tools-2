@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import * as XLSX from 'xlsx'
+import * as XLSX from 'xlsx'  // still used for upload parsing
 import { Search, Upload, Download, ChevronDown, ChevronRight, Check, X, Trash2, Link2Off, Pencil } from 'lucide-react'
 import {
   getMasterSKUs, addMasterSKU, deleteMasterSKU, updateMasterSKU,
@@ -24,16 +24,16 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
   // Unmap tab
   const [selPdfSkus,  setSelPdfSkus]  = useState([])
   const [mapTarget,   setMapTarget]   = useState('')
-  const [unmapSearch, setUnmapSearch] = useState('')   // master SKU searchable dropdown
+  const [unmapSearch, setUnmapSearch] = useState('')   // filter master SKU list
   const [skuSearch,   setSkuSearch]   = useState('')   // filter unmapped PDF SKU list
-  const [dropOpen,    setDropOpen]    = useState(false)
-  const dropdownRef = useRef(null)
   const uploadRef   = useRef(null)
 
   // Upload diff modal
   const [diffOpen,    setDiffOpen]    = useState(false)
   const [diffChanges, setDiffChanges] = useState([])
   const [diffKey,     setDiffKey]     = useState(0)   // force modal remount per upload
+  const [parsing,     setParsing]     = useState(false)
+  const [uploadMsg,   setUploadMsg]   = useState(null) // { text, ok }
 
   const reload = useCallback(async () => {
     setMasters(await getMasterSKUs())
@@ -42,13 +42,6 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
 
   useEffect(() => { reload() }, [reload])
 
-  useEffect(() => {
-    function onClickOutside(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setDropOpen(false)
-    }
-    document.addEventListener('mousedown', onClickOutside)
-    return () => document.removeEventListener('mousedown', onClickOutside)
-  }, [])
 
   // ── Derived ───────────────────────────────────────────────────────────────────
   const filteredMasters = masters.filter(m =>
@@ -174,57 +167,49 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
     setSelPdfSkus([]); reload()
   }
 
-  // ── Download Excel ────────────────────────────────────────────────────────────
-  function handleDownload() {
-    const dataRows = []
-    for (const master of masters) {
-      const children = mappings.filter(m => m.masterSku === master)
-      if (children.length === 0) {
-        dataRows.push([master, '-', '-'])
-      } else {
-        for (const { sku } of children) {
-          dataRows.push([master, sku, '-'])
-        }
-      }
-    }
-    // Orphan mappings (master was deleted but mapping survived)
-    for (const { sku, masterSku } of mappings.filter(m => !masters.includes(m.masterSku))) {
-      dataRows.push([masterSku, sku, '-'])
-    }
-
-    const wb = XLSX.utils.book_new()
-
-    // Main sheet
-    const ws = XLSX.utils.aoa_to_sheet([
-      ['Master SKU', 'SKU', 'UnMap SKU'],
-      ...dataRows,
-    ])
-    ws['!cols'] = [{ wch: 22 }, { wch: 22 }, { wch: 22 }]
-    XLSX.utils.book_append_sheet(wb, ws, 'SKU Mapping')
-
-    // Reference sheet — list of available master SKUs (for manual editing guidance)
-    if (masters.length > 0) {
-      const wsRef = XLSX.utils.aoa_to_sheet([
-        ['Available Master SKUs'],
-        ...masters.map(m => [m]),
-      ])
-      wsRef['!cols'] = [{ wch: 22 }]
-      XLSX.utils.book_append_sheet(wb, wsRef, 'Master SKU List')
-    }
-
-    XLSX.writeFile(wb, 'sku-mapping.xlsx')
+  // ── Download Excel (via server route — ExcelJS with dropdown validation) ──────
+  async function handleDownload() {
+    const res = await fetch('/api/sku/export', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ masters, mappings, unmappedSkus: unmappedPdfSkus }),
+    })
+    if (!res.ok) { console.error('Export failed', await res.text()); return }
+    const blob = await res.blob()
+    const url  = URL.createObjectURL(blob)
+    Object.assign(document.createElement('a'), { href: url, download: 'sku-mapping.xlsx' }).click()
+    URL.revokeObjectURL(url)
   }
 
   // ── Upload Excel → diff modal ─────────────────────────────────────────────────
   function handleUploadFile(e) {
     const file = e.target.files?.[0]
     if (!file) return
+    setUploadMsg(null)
+    setParsing(true)
+
     const reader = new FileReader()
     reader.onload = ev => {
       try {
-        const wb   = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' })
-        const ws   = wb.Sheets[wb.SheetNames[0]]
+        const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' })
+
+        // Always look for the 'SKU Mapping' sheet by name; fall back to index 0
+        const sheetName = wb.SheetNames.includes('SKU Mapping')
+          ? 'SKU Mapping'
+          : wb.SheetNames[0]
+        const ws   = wb.Sheets[sheetName]
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
+
+        if (!rows || rows.length < 2) {
+          setParsing(false)
+          setUploadMsg({ text: 'File is empty or has no data rows.', ok: false })
+          return
+        }
+
+        const isEmpty = v => {
+          const s = String(v ?? '').trim()
+          return !s || s === '-' || s === '0'
+        }
 
         const incoming = { mapped: [], unmapped: [] }
         for (let i = 1; i < rows.length; i++) {
@@ -232,10 +217,10 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
           const sku       = String(rows[i][1] ?? '').trim()
           const unmapSku  = String(rows[i][2] ?? '').trim()
 
-          if (masterSku && masterSku !== '-' && sku && sku !== '-') {
+          if (!isEmpty(masterSku) && !isEmpty(sku)) {
             incoming.mapped.push({ masterSku, sku })
           }
-          if (unmapSku && unmapSku !== '-') {
+          if (!isEmpty(unmapSku)) {
             incoming.unmapped.push(unmapSku)
           }
         }
@@ -293,8 +278,10 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
           }
         }
 
+        setParsing(false)
+
         if (changes.length === 0) {
-          // TODO: surface a toast "No changes detected"
+          setUploadMsg({ text: 'No changes detected — data matches current state.', ok: true })
           return
         }
 
@@ -303,8 +290,16 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
         setDiffOpen(true)
       } catch (err) {
         console.error('Upload parse error', err)
+        setParsing(false)
+        setUploadMsg({ text: 'Failed to parse file. Make sure it is a valid .xlsx file.', ok: false })
       }
     }
+
+    reader.onerror = () => {
+      setParsing(false)
+      setUploadMsg({ text: 'Could not read the file.', ok: false })
+    }
+
     reader.readAsArrayBuffer(file)
     e.target.value = ''
   }
@@ -368,11 +363,21 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
           </div>
           <div className="flex items-center gap-2 pb-3">
             <button
-              onClick={() => uploadRef.current?.click()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
+              onClick={() => { setUploadMsg(null); uploadRef.current?.click() }}
+              disabled={parsing}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-60"
               style={{ backgroundColor: '#16a34a' }}
             >
-              <Upload size={12} /> Upload
+              {parsing ? (
+                <>
+                  <svg className="animate-spin" width={12} height={12} viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="31.4" strokeDashoffset="10" />
+                  </svg>
+                  Processing…
+                </>
+              ) : (
+                <><Upload size={12} /> Upload</>
+              )}
             </button>
             <button
               onClick={handleDownload}
@@ -390,6 +395,23 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
             />
           </div>
         </div>
+
+        {/* ── Upload feedback banner ── */}
+        {uploadMsg && (
+          <div
+            className="flex items-center justify-between gap-2 px-4 py-2.5 text-xs font-semibold"
+            style={{
+              backgroundColor: uploadMsg.ok ? '#f0fdf4' : '#fef2f2',
+              borderBottom: `1px solid ${uploadMsg.ok ? '#86efac' : '#fca5a5'}`,
+              color: uploadMsg.ok ? '#16a34a' : '#dc2626',
+            }}
+          >
+            <span>{uploadMsg.text}</span>
+            <button onClick={() => setUploadMsg(null)} style={{ opacity: 0.6 }}>
+              <X size={13} />
+            </button>
+          </div>
+        )}
 
         {/* ── Tab 0: Master & Map SKU ── */}
         {activeTab === 0 && (
@@ -524,7 +546,7 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
                           </button>
                         </div>
                       ) : (
-                        <span className="text-sm font-semibold flex-1 truncate" style={{ color: '#111827' }}>
+                        <span className="text-sm font-semibold flex-1 truncate uppercase" style={{ color: '#111827' }}>
                           {masterSku}
                           {children.length > 0 && (
                             <span className="ml-1.5 text-xs font-normal" style={{ color: '#9ca3af' }}>
@@ -598,56 +620,80 @@ export default function SKUManagerPanel({ pdfSkus = [] }) {
         {/* ── Tab 1: Unmap ── */}
         {activeTab === 1 && (
           <>
-            {/* Searchable master SKU dropdown */}
-            <div className="px-4 py-3 border-b" style={{ borderColor: '#e5e7eb' }}>
-              <p className="text-xs font-semibold mb-1.5" style={{ color: '#374151' }}>
-                Select master SKU to map to:
-              </p>
-              <div className="relative" ref={dropdownRef}>
-                <div
-                  className="flex items-center rounded-lg overflow-hidden"
-                  style={{ border: `1px solid ${dropOpen ? '#7c3aed' : '#e5e7eb'}`, backgroundColor: '#f9fafb' }}
-                >
-                  <Search size={13} className="ml-3 shrink-0" style={{ color: '#9ca3af' }} />
-                  <input
-                    value={unmapSearch}
-                    onChange={e => { setUnmapSearch(e.target.value); setDropOpen(true); setMapTarget('') }}
-                    onFocus={() => setDropOpen(true)}
-                    placeholder="Search master SKU…"
-                    className="flex-1 px-2 py-2.5 text-sm outline-none bg-transparent font-mono"
-                    style={{ color: '#374151' }}
-                  />
-                  {(mapTarget || unmapSearch) && (
-                    <button onClick={() => { setMapTarget(''); setUnmapSearch(''); setSelPdfSkus([]) }}
-                            className="px-2" style={{ color: '#9ca3af' }}>
-                      <X size={13} />
-                    </button>
-                  )}
-                  <ChevronDown size={14} className="mr-3 shrink-0" style={{ color: '#6b7280' }} />
-                </div>
-
-                {dropOpen && filteredDropdownMasters.length > 0 && (
-                  <div className="absolute z-20 w-full mt-1 rounded-lg overflow-auto shadow-lg"
-                       style={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', maxHeight: 180 }}>
-                    {filteredDropdownMasters.map(m => (
-                      <button
-                        key={m}
-                        className="w-full text-left px-3 py-2.5 text-sm font-mono transition-colors"
-                        style={{
-                          color:           mapTarget === m ? '#7c3aed' : '#374151',
-                          fontWeight:      mapTarget === m ? 700 : 400,
-                          backgroundColor: mapTarget === m ? '#f3f0ff' : 'transparent',
-                        }}
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => { setMapTarget(m); setUnmapSearch(m); setDropOpen(false) }}
-                      >
-                        {m}
-                      </button>
-                    ))}
-                  </div>
+            {/* Master SKU selector — always-visible scrollable list */}
+            <div className="px-4 pt-3 pb-2 border-b" style={{ borderColor: '#e5e7eb' }}>
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="text-xs font-semibold" style={{ color: '#374151' }}>
+                  Select master SKU to map to:
+                </p>
+                {mapTarget && (
+                  <button
+                    onClick={() => { setMapTarget(''); setUnmapSearch('') }}
+                    className="text-xs flex items-center gap-1"
+                    style={{ color: '#9ca3af' }}
+                  >
+                    <X size={11} /> Clear
+                  </button>
                 )}
               </div>
 
+              {/* Filter input */}
+              <div className="relative mb-2">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#9ca3af' }} />
+                <input
+                  value={unmapSearch}
+                  onChange={e => { setUnmapSearch(e.target.value); setMapTarget('') }}
+                  placeholder="Filter master SKUs…"
+                  className="w-full pl-8 pr-3 py-2 text-sm rounded-lg outline-none font-mono"
+                  style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', color: '#374151' }}
+                />
+              </div>
+
+              {/* Always-visible master list */}
+              {masters.length === 0 ? (
+                <p className="text-xs text-center py-3" style={{ color: '#9ca3af' }}>
+                  No master SKUs yet — add some in the first tab
+                </p>
+              ) : (
+                <div
+                  className="rounded-lg overflow-y-auto"
+                  style={{ border: '1px solid #e5e7eb', maxHeight: 160 }}
+                >
+                  {filteredDropdownMasters.length === 0 ? (
+                    <p className="text-xs text-center py-3" style={{ color: '#9ca3af' }}>
+                      No match for "{unmapSearch}"
+                    </p>
+                  ) : filteredDropdownMasters.map((m, idx) => (
+                    <button
+                      key={m}
+                      onClick={() => setMapTarget(prev => prev === m ? '' : m)}
+                      className="w-full text-left px-3 py-2 text-sm font-mono flex items-center gap-2 transition-colors"
+                      style={{
+                        backgroundColor: mapTarget === m ? '#f3f0ff' : idx % 2 === 0 ? '#fff' : '#fafafa',
+                        color:           mapTarget === m ? '#7c3aed' : '#374151',
+                        fontWeight:      mapTarget === m ? 700 : 400,
+                        borderBottom:    idx < filteredDropdownMasters.length - 1 ? '1px solid #f3f4f6' : 'none',
+                      }}
+                    >
+                      <span
+                        className="w-3.5 h-3.5 rounded-full border shrink-0 flex items-center justify-center"
+                        style={{
+                          borderColor:     mapTarget === m ? '#7c3aed' : '#d1d5db',
+                          backgroundColor: mapTarget === m ? '#7c3aed' : 'transparent',
+                        }}
+                      >
+                        {mapTarget === m && <Check size={8} strokeWidth={3} style={{ color: '#fff' }} />}
+                      </span>
+                      {m}
+                      <span className="ml-auto text-xs" style={{ color: '#9ca3af' }}>
+                        {mappings.filter(mp => mp.masterSku === m).length}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Map selected batch button */}
               {selPdfSkus.length > 0 && mapTarget && (
                 <button onClick={handleMapSelected}
                         className="mt-2 w-full py-2 text-sm font-semibold rounded-lg text-white"
