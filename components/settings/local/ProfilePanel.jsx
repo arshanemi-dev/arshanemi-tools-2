@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 
 const ROLE_STYLES = {
   admin:  { dot: 'bg-[var(--lt-accent-light)]', badge: 'text-[var(--lt-accent-light)] bg-[var(--lt-accent-muted)] border-[var(--lt-accent)]/30' },
-  user: { dot: 'bg-[#34d399]', badge: 'text-[#34d399] bg-[#064e3b] border-[#10b981]/30' },
+  user: { dot: 'bg-[var(--lt-success)]', badge: 'text-[var(--lt-success)] bg-[var(--lt-success-bg)] border-[var(--lt-success)]/30' },
 }
 
 function MetaRow({ icon: Icon, label, value }) {
@@ -77,8 +77,8 @@ export default function ProfilePanel({ user, onGoToUsers }) {
           <p className="text-sm text-[var(--lt-text-muted)] mt-0.5 truncate">{user.email}</p>
         </div>
 
-        <div className="shrink-0 flex items-center gap-1.5 text-[10px] font-semibold text-[#10b981] bg-[#064e3b] border border-[#10b981]/30 px-2.5 py-1.5 rounded-full">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse" />
+        <div className="shrink-0 flex items-center gap-1.5 text-[10px] font-semibold text-[var(--lt-success)] bg-[var(--lt-success-bg)] border border-[var(--lt-success)]/30 px-2.5 py-1.5 rounded-full">
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--lt-success)] animate-pulse" />
           Active
         </div>
       </div>

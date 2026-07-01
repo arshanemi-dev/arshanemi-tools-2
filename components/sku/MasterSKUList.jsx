@@ -32,7 +32,7 @@ export default function MasterSKUList({ items, onDelete, onUpdate }) {
             }}
           />
           <button onClick={() => { onUpdate(sku, editing.value); setEditing(null) }}
-                  style={{ color: '#4ade80' }}><Check size={13} /></button>
+                  style={{ color: 'var(--lt-success)' }}><Check size={13} /></button>
           <button onClick={() => setEditing(null)}
                   style={{ color: 'var(--lt-text-subtle)' }}><X size={13} /></button>
         </>
@@ -46,7 +46,7 @@ export default function MasterSKUList({ items, onDelete, onUpdate }) {
           </button>
           <button onClick={() => onDelete(sku)}
                   className="p-1 rounded transition-colors"
-                  style={{ color: '#f87171' }}>
+                  style={{ color: 'var(--lt-danger-text)' }}>
             <Trash2 size={12} />
           </button>
         </>

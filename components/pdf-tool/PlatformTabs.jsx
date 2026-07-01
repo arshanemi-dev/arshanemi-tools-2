@@ -18,13 +18,13 @@ export default function PlatformTabs({ active, onChange }) {
           onClick={() => onChange(id)}
           className="px-4 py-1.5 rounded-full text-xs font-medium transition-all border"
           style={active === id ? {
-            backgroundColor: '#7c3aed',
+            backgroundColor: 'var(--lt-accent)',
             color: '#fff',
-            borderColor: '#7c3aed',
+            borderColor: 'var(--lt-accent)',
           } : {
-            backgroundColor: '#fff',
-            color: '#374151',
-            borderColor: '#d1d5db',
+            backgroundColor: 'var(--lt-card)',
+            color: 'var(--lt-text-muted)',
+            borderColor: 'var(--lt-divider-light)',
           }}
         >
           {label}

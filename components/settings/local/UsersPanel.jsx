@@ -9,7 +9,7 @@ const ROLES = ['admin', 'user']
 
 const ROLE_STYLES = {
   admin:  { badge: 'text-[var(--lt-accent-light)] bg-[var(--lt-accent-muted)] border-[var(--lt-accent)]/30', avatar: 'bg-[var(--lt-accent)] text-white' },
-  user: { badge: 'text-[#34d399] bg-[#064e3b] border-[#10b981]/30', avatar: 'bg-[#059669] text-white' },
+  user: { badge: 'text-[var(--lt-success)] bg-[var(--lt-success-bg)] border-[var(--lt-success)]/30', avatar: 'bg-[var(--lt-success)] text-white' },
 }
 
 const BLANK = { name: '', email: '', role: 'user', companyId: null }
@@ -29,7 +29,7 @@ function UserForm({ initial = BLANK, companies = [], onSave, onCancel, title }) 
           value={f[key]}
           onChange={e => setF(p => ({ ...p, [key]: e.target.value }))}
           placeholder={placeholder}
-          className="w-full px-3 py-2.5 bg-[var(--lt-bg-base)] border border-[var(--lt-divider-light)] rounded-[8px] text-sm text-[var(--lt-text-primary)] placeholder-[var(--lt-text-subtle)] focus:outline-none focus:border-[var(--lt-accent)] focus:bg-[#0d0d14] transition-all"
+          className="w-full px-3 py-2.5 bg-[var(--lt-bg-base)] border border-[var(--lt-divider-light)] rounded-[8px] text-sm text-[var(--lt-text-primary)] placeholder-[var(--lt-text-subtle)] focus:outline-none focus:border-[var(--lt-accent)] focus:bg-[var(--lt-card)] transition-all"
         />
       </div>
     )
@@ -152,7 +152,7 @@ function UserRow({ user, companies, isActive, onActivate, onEdit, onDelete }) {
       {/* Actions */}
       <div className="flex items-center gap-1.5 shrink-0">
         {isActive ? (
-          <span className="flex items-center gap-1 text-[10px] font-bold text-[#10b981] bg-[#064e3b] border border-[#10b981]/30 px-2.5 py-1.5 rounded-full">
+          <span className="flex items-center gap-1 text-[10px] font-bold text-[var(--lt-success)] bg-[var(--lt-success-bg)] border border-[var(--lt-success)]/30 px-2.5 py-1.5 rounded-full">
             <UserCheck size={10} />
             Active
           </span>
@@ -174,7 +174,7 @@ function UserRow({ user, companies, isActive, onActivate, onEdit, onDelete }) {
         <button
           onClick={() => onDelete(user.id)}
           title="Delete"
-          className="p-1.5 text-[var(--lt-text-subtle)] hover:text-[#ef4444] hover:bg-[#2a0a0a] rounded-[6px] transition-colors opacity-0 group-hover:opacity-100"
+          className="p-1.5 text-[var(--lt-text-subtle)] hover:text-[var(--lt-danger-text)] hover:bg-[var(--lt-danger-bg)] rounded-[6px] transition-colors opacity-0 group-hover:opacity-100"
         >
           <Trash2 size={13} />
         </button>

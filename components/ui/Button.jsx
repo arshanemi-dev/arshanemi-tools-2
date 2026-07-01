@@ -6,7 +6,7 @@ const variants = {
   primary:   'bg-[var(--lt-accent)] hover:bg-[var(--lt-accent-hover)] text-white shadow-sm',
   secondary: 'bg-[var(--lt-card-hover)] hover:bg-[var(--lt-divider)] text-[var(--lt-text-primary)] border border-[var(--lt-divider-light)]',
   ghost:     'bg-transparent hover:bg-[var(--lt-card-hover)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text-primary)]',
-  danger:    'bg-[#ef4444] hover:bg-[#dc2626] text-white shadow-sm',
+  danger:    'bg-[var(--color-danger)] hover:bg-[var(--color-danger-hover)] text-white shadow-sm',
   outline:   'bg-transparent border border-[var(--lt-divider-light)] hover:border-[var(--lt-accent)] text-[var(--lt-text-primary)]',
 }
 

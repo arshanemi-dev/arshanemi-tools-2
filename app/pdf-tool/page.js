@@ -12,6 +12,11 @@ import PDFPreviewModal from '@/components/pdf-tool/PDFPreviewModal'
 import { getSkuMappings } from '@/lib/skuStore'
 import { applyCropToAllPages } from '@/lib/pdfCropper'
 
+function dts() {
+  const d = new Date(), p = n => String(n).padStart(2, '0')
+  return `_${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`
+}
+
 function bytesToBase64(bytes) {
   let binary = ''
   const chunk = 8192
@@ -105,8 +110,7 @@ export default function PDFToolPage() {
 
       setPreviewBase64(bytesToBase64(finalBytes))
       setPreviewFilename(
-        (file?.name?.replace(/\.pdf$/i, '') || 'processed') +
-        (cropInfo ? '_cropped.pdf' : `_${effectiveSortMode}.pdf`)
+        (file?.name?.replace(/\.pdf$/i, '') || 'processed') + `_new${dts()}.pdf`
       )
 
     } catch (err) {
@@ -128,29 +132,54 @@ export default function PDFToolPage() {
     } finally { setDownloading(false) }
   }
 
-  async function handlePicklistDownload(mode) {
-    if (!labelsSummary.length) return
+  function saveBlob(blob, filename) {
+    const url = URL.createObjectURL(blob)
+    const a   = document.createElement('a')
+    a.href = url; a.download = filename
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 200)
+  }
+
+  async function handleCombinedDownload(mode) {
+    setDownloading(true)
     setDownloadingPicklist(true)
     try {
-      const skuMappings = await getSkuMappings()
-      const res = await fetch('/api/pdf/picklist', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ labels: labelsSummary, mappings: skuMappings, mode }),
-      })
-      if (!res.ok) { console.error('Picklist error', await res.text()); return }
-      const blob     = await res.blob()
-      const url      = URL.createObjectURL(blob)
-      const filename = mode === 'master-pick-list' ? 'master-pick-list.pdf' : 'pick-list.pdf'
-      Object.assign(document.createElement('a'), { href: url, download: filename }).click()
-      URL.revokeObjectURL(url)
-    } finally { setDownloadingPicklist(false) }
+      // Fetch pick list PDF first (async, while page is blocked by spinner)
+      let pickBlob = null
+      if (labelsSummary.length) {
+        const skuMappings = await getSkuMappings()
+        const res = await fetch('/api/pdf/picklist', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ labels: labelsSummary, mappings: skuMappings, mode }),
+        })
+        if (res.ok) pickBlob = await res.blob()
+      }
+
+      // Download sorted PDF
+      if (previewBase64) {
+        const bytes = Uint8Array.from(atob(previewBase64), c => c.charCodeAt(0))
+        saveBlob(new Blob([bytes], { type: 'application/pdf' }), previewFilename)
+      }
+
+      // Download pick list PDF after brief gap so browser accepts both
+      if (pickBlob) {
+        await new Promise(r => setTimeout(r, 400))
+        const base     = (file?.name?.replace(/\.pdf$/i, '') || 'orders')
+        const suffix   = mode === 'master-pick-list' ? '_master_picklist' : '_picklist'
+        const filename = `${base}${suffix}${dts()}.pdf`
+        saveBlob(pickBlob, filename)
+      }
+    } finally {
+      setDownloading(false)
+      setDownloadingPicklist(false)
+    }
   }
 
   const isManual = platform === 'manual'
 
   return (
-    <div className="min-h-full" style={{ backgroundColor: '#f9fafb' }}>
+    <div className="min-h-full" style={{ backgroundColor: 'var(--lt-bg-base)' }}>
       <div className="w-full mx-auto px-4 py-6 flex flex-row gap-5">
 <div className="flex flex-col gap-6 w-full mx-auto">
         {/* Platform tabs */}
@@ -173,7 +202,7 @@ export default function PDFToolPage() {
 
             {error && (
               <p className="text-xs px-3 py-2 rounded-lg"
-                 style={{ color: '#dc2626', backgroundColor: '#fef2f2', border: '1px solid #fecaca' }}>
+                 style={{ color: 'var(--lt-danger-text)', backgroundColor: 'var(--lt-danger-bg)', border: '1px solid color-mix(in srgb, var(--lt-danger-text) 40%, transparent)' }}>
                 {error}
               </p>
             )}
@@ -207,14 +236,14 @@ export default function PDFToolPage() {
                     onClick={handleProcess}
                     disabled={!canProcess}
                     className="w-full py-3 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-40"
-                    style={{ backgroundColor: '#7c3aed' }}
+                    style={{ backgroundColor: 'var(--lt-accent)' }}
                   >
                     {processing
                       ? <><Loader2 size={16} className="animate-spin" /> Processing…</>
                       : isManual ? 'Process & Crop PDF' : 'Process PDF'}
                   </button>
                   {hint && !processing && (
-                    <p className="text-center text-xs" style={{ color: '#9ca3af' }}>{hint}</p>
+                    <p className="text-center text-xs text-[var(--lt-text-subtle)]">{hint}</p>
                   )}
                 </div>
               )
@@ -225,12 +254,10 @@ export default function PDFToolPage() {
               <ResultsPanel
                 onPreview={() => setPreviewOpen(true)}
                 onDownload={handleDownload}
-                downloading={downloading}
-                onDownloadPicklist={handlePicklistDownload}
-                downloadingPicklist={downloadingPicklist}
+                downloading={downloading || downloadingPicklist}
+                onCombinedDownload={handleCombinedDownload}
                 showPicklist={masterSortMode === 'pick-list'}
                 showMasterPicklist={masterSortMode === 'master-pick-list'}
-                hasLabels={labelsSummary.length > 0}
               />
             )}
           </div>

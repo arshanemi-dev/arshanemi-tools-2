@@ -13,8 +13,8 @@ const ICONS = {
 }
 
 const STYLES = {
-  success: 'bg-[#064e3b] text-[#10b981] border-[#10b981]/30',
-  error:   'bg-[#450a0a] text-[#ef4444] border-[#ef4444]/30',
+  success: 'bg-[var(--lt-success-bg)] text-[var(--lt-success)] border-[var(--lt-success)]/30',
+  error:   'bg-[var(--lt-danger-bg)] text-[var(--lt-danger-text)] border-[var(--lt-danger-text)]/30',
   info:    'bg-[var(--lt-accent-muted)] text-[var(--lt-accent-light)] border-[var(--lt-accent)]/30',
 }
 

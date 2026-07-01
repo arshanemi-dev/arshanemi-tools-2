@@ -1,9 +1,5 @@
 'use client'
 
-// ── Two independent sections ───────────────────────────────────────────────────
-// User picks ONE option from each section independently.
-// Top = basic sort. Bottom = master-SKU sort. Both can be active simultaneously.
-
 const TOP_OPTIONS = [
   { id: 'sku-group',        label: 'Sort by "SKU Group"',        premium: false },
   { id: 'pickup-partner',   label: 'Sort by "Pickup Partner"',   premium: false },
@@ -13,8 +9,8 @@ const TOP_OPTIONS = [
 ]
 
 const BOTTOM_OPTIONS = [
-  { id: 'pick-list',        label: 'Pick List',       premium: false },
-  { id: 'master-pick-list', label: 'Master Pick List', premium: false  },
+  { id: 'pick-list',        label: 'Pick List',        premium: false },
+  { id: 'master-pick-list', label: 'Master Pick List', premium: false },
 ]
 
 function OptionRow({ opt, checked, premium, onChange }) {
@@ -30,13 +26,17 @@ function OptionRow({ opt, checked, premium, onChange }) {
         disabled={locked}
         onChange={() => !locked && onChange(checked ? '' : opt.id)}
         className="w-3.5 h-3.5 shrink-0"
-        style={{ accentColor: '#7c3aed' }}
+        style={{ accentColor: 'var(--lt-accent)' }}
       />
-      <span className="text-sm flex-1" style={{ color: '#374151' }}>{opt.label}</span>
+      <span className="text-sm flex-1 text-[var(--lt-text-primary)]">{opt.label}</span>
       {opt.premium && (
         <span
           className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0"
-          style={{ color: '#ea580c', backgroundColor: '#fff7ed', border: '1px solid #fed7aa' }}
+          style={{
+            color: 'var(--lt-warning)',
+            backgroundColor: 'var(--lt-warning-bg)',
+            border: '1px solid color-mix(in srgb, var(--lt-warning) 40%, transparent)',
+          }}
         >
           Premium
         </span>
@@ -51,11 +51,14 @@ export default function SortOptions({
   premium,
 }) {
   return (
-    <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#e5e7eb', backgroundColor: '#fff' }}>
+    <div
+      className="rounded-xl border overflow-hidden"
+      style={{ borderColor: 'var(--lt-divider)', backgroundColor: 'var(--lt-surface)' }}
+    >
       <div className="px-4 pt-4 pb-4">
-        <p className="text-sm font-semibold mb-3" style={{ color: '#111827' }}>Options</p>
+        <p className="text-sm font-semibold mb-3 text-[var(--lt-text-primary)]">Options</p>
 
-        {/* ── Section A: basic sort ── */}
+        {/* Section A: basic sort */}
         <div className="flex flex-col gap-3">
           {TOP_OPTIONS.map(opt => (
             <OptionRow
@@ -68,19 +71,16 @@ export default function SortOptions({
           ))}
         </div>
 
-        {/* ── Divider ── */}
+        {/* Divider */}
         <div className="my-3 flex items-center gap-2">
-          <div className="flex-1 h-px" style={{ backgroundColor: '#e5e7eb' }} />
-          <span
-            className="text-[10px] font-semibold px-2 shrink-0"
-            style={{ color: '#9ca3af' }}
-          >
+          <div className="flex-1 h-px" style={{ backgroundColor: 'var(--lt-divider)' }} />
+          <span className="text-[10px] font-semibold px-2 shrink-0 text-[var(--lt-text-subtle)]">
             MASTER
           </span>
-          <div className="flex-1 h-px" style={{ backgroundColor: '#e5e7eb' }} />
+          <div className="flex-1 h-px" style={{ backgroundColor: 'var(--lt-divider)' }} />
         </div>
 
-        {/* ── Section B: master sort ── */}
+        {/* Section B: master sort */}
         <div className="flex flex-col gap-3">
           {BOTTOM_OPTIONS.map(opt => (
             <OptionRow

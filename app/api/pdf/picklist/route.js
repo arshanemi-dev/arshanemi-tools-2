@@ -35,34 +35,24 @@ export async function POST(request) {
   let groups = []
 
   if (isMaster) {
-    const masterBucket = {}  // masterSku → { sku → count }
-    const unmapped     = {}
+    // Tally count per master SKU (flat — no sub-SKU breakdown)
+    const masterCount = {}
+    let unmappedCount = 0
 
     for (const [sku, count] of Object.entries(skuCount)) {
       const m = mappings.find(mp => mp.sku.toUpperCase() === sku.toUpperCase())
       if (m) {
-        if (!masterBucket[m.masterSku]) masterBucket[m.masterSku] = {}
-        masterBucket[m.masterSku][sku] = (masterBucket[m.masterSku][sku] || 0) + count
+        masterCount[m.masterSku] = (masterCount[m.masterSku] || 0) + count
       } else {
-        unmapped[sku] = count
+        unmappedCount += count
       }
     }
 
-    for (const master of Object.keys(masterBucket).sort()) {
-      const rows     = Object.entries(masterBucket[master])
-        .map(([sku, count]) => ({ sku, count }))
-        .sort((a, b) => b.count - a.count)
-      const subtotal = rows.reduce((s, r) => s + r.count, 0)
-      groups.push({ master, rows, subtotal })
-    }
-
-    if (Object.keys(unmapped).length) {
-      const rows     = Object.entries(unmapped)
-        .map(([sku, count]) => ({ sku, count }))
-        .sort((a, b) => b.count - a.count)
-      const subtotal = rows.reduce((s, r) => s + r.count, 0)
-      groups.push({ master: 'Unmapped', rows, subtotal })
-    }
+    const rows = Object.entries(masterCount)
+      .map(([sku, count]) => ({ sku, count }))
+      .sort((a, b) => b.count - a.count)
+    if (unmappedCount > 0) rows.push({ sku: 'Unmapped', count: unmappedCount })
+    groups = [{ master: null, rows, subtotal: totalOrders }]
   } else {
     const rows     = Object.entries(skuCount)
       .map(([sku, count]) => ({ sku, count }))
@@ -108,27 +98,41 @@ export async function POST(request) {
     }
   }
 
+  function drawTotalBadge() {
+    // Total Orders banner shown at the TOP of every page
+    const label = 'Total Orders:'
+    const value = String(totalOrders)
+    const lw    = bold.widthOfTextAtSize(label, 9)
+    const vw    = bold.widthOfTextAtSize(value, 12)
+    const bw    = lw + vw + 22
+    const bx    = PW - MR - bw
+
+    page.drawRectangle({ x: bx, y: y - 14, width: bw, height: 18, color: C.purpleL, borderRadius: 4 })
+    page.drawText(label, { x: bx + 6,      y: y - 9, font: bold, size: 9,  color: C.muted })
+    page.drawText(value, { x: bx + lw + 10, y: y - 11, font: bold, size: 12, color: C.purple })
+  }
+
   function drawHeader() {
     // Title
     const title = isMaster ? 'MASTER PICK LIST' : 'PICK LIST'
     page.drawText(title, { x: ML, y, font: bold, size: 15, color: C.purple })
 
-    const dateStr  = `Date: ${today}`
-    const dateW    = reg.widthOfTextAtSize(dateStr, 8)
+    const dateStr = `Date: ${today}`
+    const dateW   = reg.widthOfTextAtSize(dateStr, 8)
     page.drawText(dateStr, { x: PW - MR - dateW, y: y + 1, font: reg, size: 8, color: C.muted })
     y -= 20
 
     hline(1, C.purple)
-    y -= 12
+    y -= 14
+
+    // Total Orders at top
+    drawTotalBadge()
+    y -= 22
 
     // Column headings
-    if (isMaster) {
-      page.drawText('Master SKU',  { x: ML,       y, font: bold, size: 8, color: C.muted })
-      page.drawText('SKU',         { x: ML + 145, y, font: bold, size: 8, color: C.muted })
-    } else {
-      page.drawText('SKU',         { x: ML,       y, font: bold, size: 8, color: C.muted })
-    }
-    page.drawText('Qty',           { x: QTY_X,    y, font: bold, size: 8, color: C.muted })
+    const skuColLabel = isMaster ? 'Master SKU' : 'SKU'
+    page.drawText(skuColLabel, { x: ML,    y, font: bold, size: 8, color: C.muted })
+    page.drawText('Qty',       { x: QTY_X, y, font: bold, size: 8, color: C.muted })
     y -= 6
     hline(0.4)
     y -= 10
@@ -140,68 +144,23 @@ export async function POST(request) {
 
   let rowIdx = 0
 
-  for (const { master, rows, subtotal } of groups) {
-    if (isMaster) {
-      // ── Master SKU group header ─────────────────────────────────────────
-      ensure(ROW_H + 4)
-      page.drawRectangle({ x: ML, y: y - ROW_H + 6, width: CW, height: ROW_H, color: C.purpleL })
-      page.drawText(master, { x: ML + 4, y: y - 9, font: bold, size: 10, color: C.purple })
-      const subLabel = `(${subtotal} orders)`
-      const subLW    = bold.widthOfTextAtSize(subLabel, 8)
-      page.drawText(subLabel, { x: PW - MR - subLW, y: y - 8, font: bold, size: 8, color: C.purple })
-      y -= ROW_H + 2
+  for (const { rows } of groups) {
+    for (const { sku, count } of rows) {
+      ensure(ROW_H)
+      if (rowIdx % 2 === 0)
+        page.drawRectangle({ x: ML, y: y - ROW_H + 6, width: CW, height: ROW_H, color: C.altRow })
 
-      // ── Child SKU rows ─────────────────────────────────────────────────
-      for (const { sku, count } of rows) {
-        ensure(ROW_H)
-        if (rowIdx % 2 === 0)
-          page.drawRectangle({ x: ML, y: y - ROW_H + 6, width: CW, height: ROW_H, color: C.altRow })
+      page.drawText(sku, { x: ML, y: y - 11, font: reg, size: 10, color: C.black })
 
-        page.drawText(sku, { x: ML + 149, y: y - 9, font: reg, size: 9, color: C.black })
+      const qtyStr = String(count)
+      const qtyW   = bold.widthOfTextAtSize(qtyStr, 13)
+      page.drawText(qtyStr, { x: QTY_X + 20 - qtyW, y: y - 12, font: bold, size: 13, color: C.black })
 
-        const qtyStr = String(count)
-        const qtyW   = bold.widthOfTextAtSize(qtyStr, 11)
-        page.drawText(qtyStr, { x: QTY_X + 20 - qtyW, y: y - 11, font: bold, size: 11, color: C.black })
+      const bw = Math.max(3, Math.round((count / maxCount) * BAR_MAX))
+      page.drawRectangle({ x: BAR_X, y: y - 15, width: bw, height: 9, color: C.bar, borderRadius: 2 })
 
-        const bw = Math.max(3, Math.round((count / maxCount) * BAR_MAX))
-        page.drawRectangle({ x: BAR_X, y: y - 14, width: bw, height: 8, color: C.bar, borderRadius: 2 })
-
-        y -= ROW_H
-        rowIdx++
-      }
-
-      // ── Subtotal row ───────────────────────────────────────────────────
-      ensure(18)
-      const label = 'Subtotal:'
-      page.drawText(label, { x: ML + 149, y: y - 9, font: bold, size: 8, color: C.muted })
-      const stStr = String(subtotal)
-      const stW   = bold.widthOfTextAtSize(stStr, 10)
-      page.drawText(stStr, { x: QTY_X + 20 - stW, y: y - 9, font: bold, size: 10, color: C.green })
-      y -= 18
-
-      ensure(6)
-      hline(0.3, C.line)
-      y -= 8
-
-    } else {
-      // ── Simple SKU rows ────────────────────────────────────────────────
-      for (const { sku, count } of rows) {
-        ensure(ROW_H)
-        if (rowIdx % 2 === 0)
-          page.drawRectangle({ x: ML, y: y - ROW_H + 6, width: CW, height: ROW_H, color: C.altRow })
-
-        page.drawText(sku, { x: ML, y: y - 11, font: reg, size: 10, color: C.black })
-
-        const qtyStr = String(count)
-        const qtyW   = bold.widthOfTextAtSize(qtyStr, 13)
-        page.drawText(qtyStr, { x: QTY_X + 20 - qtyW, y: y - 12, font: bold, size: 13, color: C.black })
-
-        const bw = Math.max(3, Math.round((count / maxCount) * BAR_MAX))
-        page.drawRectangle({ x: BAR_X, y: y - 15, width: bw, height: 9, color: C.bar, borderRadius: 2 })
-
-        y -= ROW_H
-        rowIdx++
-      }
+      y -= ROW_H
+      rowIdx++
     }
   }
 

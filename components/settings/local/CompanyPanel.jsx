@@ -26,7 +26,7 @@ function CompanyForm({ initial = BLANK, onSave, onCancel, title }) {
           value={f[key]}
           onChange={e => setF(p => ({ ...p, [key]: e.target.value }))}
           placeholder={placeholder}
-          className="w-full px-3 py-2.5 bg-[var(--lt-bg-base)] border border-[var(--lt-divider-light)] rounded-[8px] text-sm text-[var(--lt-text-primary)] placeholder-[var(--lt-text-subtle)] focus:outline-none focus:border-[var(--lt-accent)] focus:bg-[#0d0d14] transition-all"
+          className="w-full px-3 py-2.5 bg-[var(--lt-bg-base)] border border-[var(--lt-divider-light)] rounded-[8px] text-sm text-[var(--lt-text-primary)] placeholder-[var(--lt-text-subtle)] focus:outline-none focus:border-[var(--lt-accent)] focus:bg-[var(--lt-card)] transition-all"
         />
       </div>
     )
@@ -51,7 +51,7 @@ function CompanyForm({ initial = BLANK, onSave, onCancel, title }) {
       </div>
 
       {err && (
-        <p className="text-xs text-[#ef4444] bg-[#2a0a0a] border border-[#ef4444]/30 rounded-[8px] px-3 py-2">{err}</p>
+        <p className="text-xs text-[var(--lt-danger-text)] bg-[var(--lt-danger-bg)] border border-[var(--lt-danger-text)]/30 rounded-[8px] px-3 py-2">{err}</p>
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -119,7 +119,7 @@ function CompanyRow({ company, onEdit, onDelete }) {
           </button>
           <button
             onClick={() => onDelete(company)}
-            className="p-1.5 text-[var(--lt-text-subtle)] hover:text-[#ef4444] hover:bg-[#2a0a0a] rounded-[6px] transition-colors"
+            className="p-1.5 text-[var(--lt-text-subtle)] hover:text-[var(--lt-danger-text)] hover:bg-[var(--lt-danger-bg)] rounded-[6px] transition-colors"
             title="Delete"
           >
             <Trash2 size={13} />

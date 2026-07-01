@@ -57,7 +57,7 @@ export default function LocalModeSettings() {
         <div>
           <div className="flex items-center gap-2.5 mb-1">
             <h1 className="text-[22px] font-bold text-[var(--lt-text-primary)] tracking-tight">Settings</h1>
-            <span className="flex items-center gap-1.5 text-[9px] font-bold tracking-widest uppercase text-[#f59e0b] bg-[#1a1100] border border-[#f59e0b]/25 px-2.5 py-1 rounded-full">
+            <span className="flex items-center gap-1.5 text-[9px] font-bold tracking-widest uppercase text-[var(--lt-warning)] bg-[var(--lt-warning-bg)] border border-[var(--lt-warning)]/25 px-2.5 py-1 rounded-full">
               <WifiOff size={8} />
               Local Mode
             </span>
@@ -76,7 +76,7 @@ export default function LocalModeSettings() {
             <span className="text-xs font-medium text-[var(--lt-accent-light)] truncate max-w-[120px]">
               {activeUser.name}
             </span>
-            <CheckCircle size={11} className="text-[#10b981] shrink-0" />
+            <CheckCircle size={11} className="text-[var(--lt-success)] shrink-0" />
           </div>
         )}
       </div>

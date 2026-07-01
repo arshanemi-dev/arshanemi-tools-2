@@ -58,6 +58,18 @@
   --lt-danger-bg:     #450a0a;
   --lt-danger-text:   #ef4444;
   --lt-danger-hover:  #6b1212;
+
+  /* Success semantic */
+  --lt-success:       #10b981;
+  --lt-success-bg:    #064e3b;
+
+  /* Warning semantic */
+  --lt-warning:       #f59e0b;
+  --lt-warning-bg:    #451a03;
+
+  /* Info semantic (blue actions) */
+  --lt-info:          #60a5fa;
+  --lt-info-bg:       #1e3a5f;
 }
 
 /* Light-mode overrides — applied when ThemeContext sets data-theme="light" */
@@ -77,6 +89,18 @@
   --lt-danger-bg:     #fef2f2;
   --lt-danger-text:   #dc2626;
   --lt-danger-hover:  #fee2e2;
+
+  /* Success (light) */
+  --lt-success:       #16a34a;
+  --lt-success-bg:    #f0fdf4;
+
+  /* Warning (light) */
+  --lt-warning:       #d97706;
+  --lt-warning-bg:    #fffbeb;
+
+  /* Info (light) */
+  --lt-info:          #2563eb;
+  --lt-info-bg:       #eff6ff;
 }
 
 /* ── Base ─────────────────────────────────────────────────────────────── */
@@ -109,15 +133,15 @@ svg.lucide {
 /* ── Scrollbar ─────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar        { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track  { background: transparent; }
-::-webkit-scrollbar-thumb  { background: #d1d5db; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+::-webkit-scrollbar-thumb  { background: var(--lt-divider-light); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--lt-text-subtle); }
 
 /* Firefox */
-* { scrollbar-width: thin; scrollbar-color: #d1d5db transparent; }
+* { scrollbar-width: thin; scrollbar-color: var(--lt-divider-light) transparent; }
 
 /* ── Utility classes ──────────────────────────────────────────────────── */
 .gradient-text {
-  background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+  background: linear-gradient(135deg, var(--lt-accent) 0%, var(--color-cyan) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -127,8 +151,8 @@ svg.lucide {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .card-glow:hover {
-  border-color: #4f46e5 !important;
-  box-shadow: 0 0 20px rgba(79, 70, 229, 0.15);
+  border-color: var(--lt-accent) !important;
+  box-shadow: 0 0 20px color-mix(in srgb, var(--lt-accent) 15%, transparent);
 }
 
 .section-pad {
@@ -171,6 +195,6 @@ svg.lucide {
 
 /* Drag-over overlay */
 .dropzone-active {
-  border: 2px dashed #4f46e5;
-  background: rgba(79, 70, 229, 0.05);
+  border: 2px dashed var(--lt-accent);
+  background: color-mix(in srgb, var(--lt-accent) 5%, transparent);
 }

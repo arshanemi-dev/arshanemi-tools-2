@@ -208,7 +208,7 @@ export default function ThemePanel() {
                 key={m.value}
                 className="text-[10px]"
                 style={{
-                  color: Math.abs(m.value - fontScale) < 0.01 ? 'var(--lt-accent)' : '#4a4a4a',
+                  color: Math.abs(m.value - fontScale) < 0.01 ? 'var(--lt-accent)' : 'var(--lt-text-subtle)',
                   fontWeight: Math.abs(m.value - fontScale) < 0.01 ? 700 : 400,
                 }}
               >
