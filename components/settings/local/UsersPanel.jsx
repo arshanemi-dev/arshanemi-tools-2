@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Plus, Pencil, Trash2, UserCheck, Check, X, User, Building2 } from 'lucide-react'
-import { addUser, updateUser, deleteUser, setActiveUserId } from '@/lib/localStore'
+import { addUser, updateUser, deleteUser, setActiveUserId } from '@/lib/dataStore'
 import { cn } from '@/lib/utils'
 
 const ROLES = ['admin', 'user']
@@ -189,21 +189,21 @@ export default function UsersPanel({ users, companies = [], activeUserId, onRefr
   const [creating, setCreating] = useState(false)
   const [editing,  setEditing]  = useState(null)
 
-  function handleCreate(data) {
-    addUser(data)
+  async function handleCreate(data) {
+    await addUser(data)
     setCreating(false)
     onRefresh()
   }
 
-  function handleUpdate(data) {
-    updateUser(editing.id, data)
+  async function handleUpdate(data) {
+    await updateUser(editing.id, data)
     setEditing(null)
     onRefresh()
   }
 
-  function handleDelete(id) {
+  async function handleDelete(id) {
     if (!window.confirm('Delete this user? This cannot be undone.')) return
-    deleteUser(id)
+    await deleteUser(id)
     onRefresh()
   }
 

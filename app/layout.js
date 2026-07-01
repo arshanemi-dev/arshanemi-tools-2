@@ -1,6 +1,6 @@
 import { Inter } from 'next/font/google'
 import './globals.css'
-import Header from '@/components/layout/Header'
+import AppShell from '@/components/layout/AppShell'
 import { ToastProvider } from '@/components/layout/ToastProvider'
 import { ThemeProvider } from '@/context/ThemeContext'
 
@@ -17,10 +17,9 @@ export default function RootLayout({ children }) {
       <body className={`${inter.variable} h-full flex flex-col`}>
         <ThemeProvider>
           <ToastProvider>
-            <Header />
-            <main className="flex-1 overflow-y-auto" style={{ backgroundColor: 'var(--lt-bg-base)' }}>
+            <AppShell>
               {children}
-            </main>
+            </AppShell>
           </ToastProvider>
         </ThemeProvider>
       </body>

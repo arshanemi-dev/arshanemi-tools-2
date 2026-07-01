@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Settings, LayoutDashboard } from 'lucide-react'
+import { Settings, LayoutDashboard, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const IS_CONNECT = process.env.NEXT_PUBLIC_IS_CONNECT === 'true'
@@ -18,11 +18,16 @@ function PdfIcon({ size = 16 }) {
 }
 
 const BASE_NAV = [
-  // { href: '/pdf-tool', label: 'PDF Tool', isPdf: true },
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
-export default function Header() {
+function handleLogout() {
+  localStorage.removeItem('lt_auth_token')
+  localStorage.removeItem('lt_auth_user')
+  window.location.reload()
+}
+
+export default function Header({ authUser }) {
   const pathname = usePathname()
 
   const nav = IS_CONNECT && ADMIN_URL
@@ -60,6 +65,27 @@ export default function Header() {
             <span className="hidden sm:inline">{label}</span>
           </Link>
         ))}
+
+        {/* Logged-in user pill + logout (only in connected mode) */}
+        {!IS_CONNECT && authUser && (
+          <div className="flex items-center gap-2 ml-2 pl-2 border-l border-[var(--lt-divider)]">
+            <div className="flex items-center gap-2 px-2.5 py-1.5 bg-[var(--lt-card)] border border-[var(--lt-divider)] rounded-[8px]">
+              <div className="w-5 h-5 rounded-full bg-[var(--lt-accent)] flex items-center justify-center text-[9px] font-bold text-white shrink-0">
+                {(authUser.name?.[0] ?? authUser.email?.[0] ?? '?').toUpperCase()}
+              </div>
+              <span className="text-xs font-medium text-[var(--lt-text-primary)] hidden sm:block max-w-[100px] truncate">
+                {authUser.name || authUser.email}
+              </span>
+            </div>
+            <button
+              onClick={handleLogout}
+              title="Logout"
+              className="p-1.5 text-[var(--lt-text-subtle)] hover:text-[var(--lt-danger-text)] hover:bg-[var(--lt-danger-bg)] rounded-[6px] transition-colors"
+            >
+              <LogOut size={14} />
+            </button>
+          </div>
+        )}
       </nav>
     </header>
   )

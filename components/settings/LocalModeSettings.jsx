@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { User, Users, Palette, WifiOff, CheckCircle, Building2 } from 'lucide-react'
+import { User, Users, Palette, CheckCircle, Building2, Database } from 'lucide-react'
 import {
   getUsers, getActiveUserId, getActiveUser,
   getCompanies,
-} from '@/lib/localStore'
+} from '@/lib/dataStore'
 import ProfilePanel from './local/ProfilePanel'
 import UsersPanel   from './local/UsersPanel'
 import ThemePanel   from './local/ThemePanel'
@@ -39,11 +39,13 @@ export default function LocalModeSettings() {
   const [activeUserId, setAUID]     = useState(null)
   const [activeUser,   setAU]       = useState(null)
 
-  const refresh = useCallback(() => {
-    setUsers(getUsers())
-    setCompanies(getCompanies())
-    setAUID(getActiveUserId())
-    setAU(getActiveUser())
+  const refresh = useCallback(async () => {
+    const [u, c] = await Promise.all([getUsers(), getCompanies()])
+    setUsers(u)
+    setCompanies(c)
+    const aid = getActiveUserId()
+    setAUID(aid)
+    setAU(getActiveUser(u))
   }, [])
 
   useEffect(() => { refresh() }, [refresh])
@@ -57,13 +59,13 @@ export default function LocalModeSettings() {
         <div>
           <div className="flex items-center gap-2.5 mb-1">
             <h1 className="text-[22px] font-bold text-[var(--lt-text-primary)] tracking-tight">Settings</h1>
-            <span className="flex items-center gap-1.5 text-[9px] font-bold tracking-widest uppercase text-[var(--lt-warning)] bg-[var(--lt-warning-bg)] border border-[var(--lt-warning)]/25 px-2.5 py-1 rounded-full">
-              <WifiOff size={8} />
-              Local Mode
+            <span className="flex items-center gap-1.5 text-[9px] font-bold tracking-widest uppercase text-[var(--lt-success)] bg-[var(--lt-success-bg)] border border-[var(--lt-success)]/25 px-2.5 py-1 rounded-full">
+              <Database size={8} />
+              JSON Files
             </span>
           </div>
           <p className="text-sm text-[var(--lt-text-subtle)]">
-            Offline · No admin API · Data stored in browser
+            Users &amp; companies saved to data/users.json and data/company.json
           </p>
         </div>
 
@@ -122,6 +124,7 @@ export default function LocalModeSettings() {
           <Section title="Local Companies">
             <CompanyPanel
               companies={companies}
+              allUsers={users}
               onRefresh={refresh}
             />
           </Section>

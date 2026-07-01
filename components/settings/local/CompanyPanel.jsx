@@ -5,7 +5,7 @@ import {
   Building2, Plus, Pencil, Trash2, Check, X,
   FolderOpen, Users, Globe, Phone, Mail,
 } from 'lucide-react'
-import { addCompany, updateCompany, deleteCompany, getUsersForCompany } from '@/lib/localStore'
+import { addCompany, updateCompany, deleteCompany } from '@/lib/dataStore'
 import { cn } from '@/lib/utils'
 
 // ── Inline form ───────────────────────────────────────────────────────────────
@@ -32,10 +32,10 @@ function CompanyForm({ initial = BLANK, onSave, onCancel, title }) {
     )
   }
 
-  function handleSave() {
+  async function handleSave() {
     setErr('')
     try {
-      onSave(f)
+      await onSave(f)
     } catch (e) {
       setErr(e.message)
     }
@@ -88,8 +88,8 @@ function CompanyForm({ initial = BLANK, onSave, onCancel, title }) {
 
 // ── Company row ───────────────────────────────────────────────────────────────
 
-function CompanyRow({ company, onEdit, onDelete }) {
-  const members = getUsersForCompany(company.id)
+function CompanyRow({ company, allUsers = [], onEdit, onDelete }) {
+  const members = allUsers.filter(u => u.companyId === company.id)
 
   return (
     <div className="group flex flex-col gap-2.5 p-4 bg-[var(--lt-card)] border border-[var(--lt-divider)] hover:border-[var(--lt-divider-light)] rounded-[12px] transition-all">
@@ -168,29 +168,29 @@ function CompanyRow({ company, onEdit, onDelete }) {
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 
-export default function CompanyPanel({ companies, onRefresh }) {
+export default function CompanyPanel({ companies, allUsers = [], onRefresh }) {
   const [creating, setCreating] = useState(false)
   const [editing,  setEditing]  = useState(null)
 
-  function handleCreate(data) {
-    addCompany(data)  // throws on duplicate email
+  async function handleCreate(data) {
+    await addCompany(data)
     setCreating(false)
     onRefresh()
   }
 
-  function handleUpdate(data) {
-    updateCompany(editing.id, data)
+  async function handleUpdate(data) {
+    await updateCompany(editing.id, data)
     setEditing(null)
     onRefresh()
   }
 
-  function handleDelete(company) {
-    const members = getUsersForCompany(company.id)
+  async function handleDelete(company) {
+    const members = allUsers.filter(u => u.companyId === company.id)
     const warn = members.length > 0
       ? `Delete "${company.name || company.email}"? ${members.length} user(s) will be unlinked.`
       : `Delete "${company.name || company.email}"?`
     if (!window.confirm(warn)) return
-    deleteCompany(company.id)
+    await deleteCompany(company.id)
     onRefresh()
   }
 
@@ -256,6 +256,7 @@ export default function CompanyPanel({ companies, onRefresh }) {
               <CompanyRow
                 key={c.id}
                 company={c}
+                allUsers={allUsers}
                 onEdit={setEditing}
                 onDelete={handleDelete}
               />
